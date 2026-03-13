@@ -1,0 +1,779 @@
+:root {
+  --alba-bg-deep: #1e2734;
+  --alba-bg-mid: #2a3749;
+  --alba-glass: rgba(255, 255, 255, 0.12);
+  --alba-glass-strong: rgba(255, 255, 255, 0.2);
+  --alba-text-main: #f5f8fc;
+  --alba-text-soft: #c8d3df;
+  --alba-emerald: #29b67a;
+  --alba-terracotta: #c96f55;
+  --alba-border: rgba(255, 255, 255, 0.18);
+}
+
+* {
+  box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.alba-drag-ghost {
+  position: fixed;
+  z-index: 9999;
+  pointer-events: none;
+  opacity: 0.85;
+  transform: scale(1.08);
+  filter: drop-shadow(0 6px 16px rgba(0, 0, 0, 0.45));
+}
+
+.alba-shell {
+  position: relative;
+  min-height: 100svh;
+  padding: 0;
+  background:
+    radial-gradient(circle at 20% -10%, rgba(43, 134, 97, 0.35), transparent 42%),
+    radial-gradient(circle at 90% 5%, rgba(201, 111, 85, 0.32), transparent 38%),
+    linear-gradient(145deg, var(--alba-bg-deep), var(--alba-bg-mid));
+  color: var(--alba-text-main);
+  font-family: "Manrope", "Segoe UI", sans-serif;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior-y: contain;
+}
+
+.alba-glow {
+  position: absolute;
+  border-radius: 999px;
+  filter: blur(42px);
+  opacity: 0.52;
+  pointer-events: none;
+}
+
+.alba-glow-a {
+  width: 220px;
+  height: 220px;
+  top: -80px;
+  left: -40px;
+  background: rgba(41, 182, 122, 0.45);
+}
+
+.alba-glow-b {
+  width: 220px;
+  height: 220px;
+  right: -30px;
+  bottom: 70px;
+  background: rgba(201, 111, 85, 0.43);
+}
+
+.alba-app,
+.alba-auth-card {
+  position: relative;
+  z-index: 2;
+  max-width: 1000px;
+  margin: 0 auto;
+  border: 1px solid var(--alba-border);
+  background: linear-gradient(130deg, rgba(255, 255, 255, 0.13), rgba(255, 255, 255, 0.06));
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border-radius: 28px;
+  box-shadow: 0 24px 50px rgba(5, 10, 20, 0.4);
+}
+
+.alba-auth-card {
+  margin-top: clamp(1rem, 5vh, 4rem);
+  padding: clamp(1.25rem, 4vw, 2rem);
+  display: grid;
+  gap: 1rem;
+}
+
+.alba-auth-card h1 {
+  margin: 0;
+  font-size: clamp(1.45rem, 2.9vw, 2.35rem);
+}
+
+.alba-subtle {
+  margin: 0;
+  color: var(--alba-text-soft);
+  line-height: 1.5;
+}
+
+.alba-label {
+  margin: 0;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  font-size: 0.72rem;
+  color: var(--alba-text-soft);
+}
+
+.alba-auth-toggle {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  padding: 0.3rem;
+  border-radius: 14px;
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.alba-auth-toggle button,
+.alba-auth-form button,
+.alba-section-head button,
+.alba-bottom-nav button,
+.alba-keypad-actions button,
+.alba-keypad-grid button {
+  border: 1px solid transparent;
+  border-radius: 12px;
+  min-height: 44px;
+  font: inherit;
+  color: inherit;
+  background: rgba(255, 255, 255, 0.08);
+  cursor: pointer;
+  transition: 0.2s ease;
+}
+
+.alba-auth-toggle button.is-active,
+.alba-bottom-nav button.is-active {
+  border-color: rgba(255, 255, 255, 0.28);
+  background: rgba(255, 255, 255, 0.2);
+}
+
+.alba-auth-form {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.alba-auth-error {
+  margin: 0;
+  color: #ffd7cd;
+  font-size: 0.88rem;
+}
+
+.alba-auth-form label {
+  display: grid;
+  gap: 0.35rem;
+  font-size: 0.9rem;
+  color: var(--alba-text-soft);
+}
+
+.alba-auth-form input {
+  width: 100%;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 12px;
+  min-height: 48px;
+  padding: 0.65rem 0.8rem;
+  color: var(--alba-text-main);
+  background: rgba(0, 0, 0, 0.12);
+}
+
+.alba-primary {
+  background: linear-gradient(140deg, #2ec085, #239f6e) !important;
+  color: #f7fffb !important;
+}
+
+.alba-app {
+  max-width: none;
+  border: 0;
+  border-radius: 0;
+  box-shadow: none;
+  background: transparent;
+  min-height: 100svh;
+  display: flex;
+  flex-direction: column;
+  padding: 0 0.65rem;
+  padding-bottom: calc(4.1rem + env(safe-area-inset-bottom));
+}
+
+.alba-header {
+  position: sticky;
+  top: 0;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 0.8rem;
+  margin: 0 -0.65rem;
+  padding: 0.45rem 0.55rem;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  border-left: 0;
+  border-right: 0;
+  border-radius: 0;
+  background: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  min-height: 48px;
+}
+
+.alba-profile-group {
+  display: flex;
+  align-items: center;
+  gap: 0.65rem;
+  min-width: 0;
+}
+
+.alba-header-right {
+  display: flex;
+  align-items: center;
+  gap: 0.55rem;
+}
+
+.alba-avatar,
+.alba-member-pill {
+  border: 1px solid rgba(255, 255, 255, 0.28);
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  color: var(--alba-text-main);
+  background: rgba(255, 255, 255, 0.12);
+}
+
+.alba-avatar.is-online {
+  border-color: rgba(41, 182, 122, 0.95);
+  box-shadow: 0 0 0 3px rgba(41, 182, 122, 0.24);
+}
+
+.alba-avatar.is-local {
+  border-color: rgba(201, 111, 85, 0.9);
+  box-shadow: 0 0 0 3px rgba(201, 111, 85, 0.24);
+}
+
+.alba-family-strip {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+  overflow-x: auto;
+  scrollbar-width: thin;
+}
+
+.alba-plus {
+  color: #d7e0eb;
+  border-style: dashed;
+}
+
+.alba-logo {
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  color: #edf4fd;
+}
+
+.alba-main {
+  margin-top: -0.12rem;
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  flex: 1;
+}
+
+.alba-section-incomes {
+  margin-top: -0.1rem;
+}
+
+.alba-section-incomes.is-collapsed {
+  padding-bottom: 0;
+  margin-bottom: 0;
+}
+
+.alba-logout {
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 999px;
+  min-height: 34px;
+  padding: 0 0.8rem;
+  color: var(--alba-text-main);
+  background: rgba(255, 255, 255, 0.08);
+}
+
+.alba-section {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  padding-bottom: 0.1rem;
+}
+
+.alba-section.is-collapsed {
+  padding-bottom: 0;
+}
+
+.alba-section-with-divider {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+}
+
+.alba-section-head {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0.28rem 0;
+  min-height: 28px;
+}
+
+.alba-section-head h2 {
+  margin: 0;
+  font-size: 0.9rem;
+  letter-spacing: 0.01em;
+}
+
+.alba-section-toggle {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 16px;
+  min-height: 0 !important;
+  border: 0 !important;
+  border-radius: 0 !important;
+  padding: 0;
+  line-height: 1;
+  color: var(--alba-text-main);
+  background: transparent !important;
+  box-shadow: none;
+  outline: none;
+  appearance: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+}
+
+.alba-section-toggle-arrow {
+  width: 12px;
+  height: 8px;
+  display: block;
+  transform: translateY(-1px);
+  transition: transform 0.18s ease;
+}
+
+.alba-section-toggle-arrow path {
+  stroke: rgba(245, 249, 255, 0.94);
+  stroke-width: 1.8;
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.alba-section-toggle.is-open .alba-section-toggle-arrow {
+  transform: translateY(-1px) rotate(180deg);
+}
+
+.alba-accounts-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.24rem 0.28rem;
+  margin: 0;
+  margin-bottom: 0.02rem;
+}
+
+.alba-item-card {
+  border: 0;
+  background: transparent;
+  padding: 0;
+  display: grid;
+  justify-items: center;
+  text-align: center;
+  gap: 0.12rem;
+}
+
+.alba-account-card,
+.alba-income-card {
+  cursor: grab;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+  touch-action: none;
+}
+
+.alba-category-card {
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.alba-item-circle {
+  width: 46px;
+  height: 46px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-weight: 700;
+  font-size: 0.72rem;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+}
+
+.alba-item-add {
+  cursor: pointer;
+}
+
+.alba-item-circle.is-add {
+  color: rgba(235, 243, 252, 0.92);
+  border: 1.6px dashed rgba(217, 229, 243, 0.75);
+  background: rgba(255, 255, 255, 0.05);
+}
+
+.alba-item-circle.is-income {
+  color: #edf5ff;
+  border-color: rgba(82, 149, 230, 0.7);
+  background: radial-gradient(circle at 30% 20%, rgba(114, 165, 236, 0.55), rgba(31, 61, 109, 0.65));
+}
+
+.alba-item-circle.is-account {
+  color: #effff8;
+  border-color: rgba(41, 182, 122, 0.7);
+  background: radial-gradient(circle at 30% 20%, rgba(76, 195, 146, 0.6), rgba(16, 72, 53, 0.62));
+}
+
+.alba-item-circle.is-category {
+  color: #ffece6;
+  border-color: rgba(201, 111, 85, 0.7);
+  background: radial-gradient(circle at 30% 20%, rgba(226, 146, 118, 0.62), rgba(90, 45, 32, 0.62));
+}
+
+.alba-item-title,
+.alba-item-subtitle {
+  margin: 0;
+}
+
+.alba-item-title {
+  max-width: 58px;
+  font-size: 0.58rem;
+  line-height: 1.15;
+  color: #f3f7fd;
+  display: -webkit-box;
+  -webkit-line-clamp: 1;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  min-height: 1em;
+  margin-top: -0.04rem;
+}
+
+.alba-item-subtitle {
+  max-width: 58px;
+  font-size: 0.54rem;
+  line-height: 1.15;
+  color: rgba(228, 236, 246, 0.86);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-top: -0.1rem;
+}
+
+.alba-inline-divider {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.18);
+  margin-top: 0.08rem;
+}
+
+.alba-inline-divider-collapsed {
+  margin-top: 0;
+}
+
+.alba-category-grid {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 0.24rem 0.28rem;
+  margin: 0;
+  margin-bottom: 0.02rem;
+}
+
+.alba-category-card {
+  border: 0;
+  border-radius: 0;
+  padding: 0;
+  justify-self: center;
+}
+
+.alba-category-wrap {
+  position: relative;
+  display: grid;
+  justify-items: center;
+  transition: opacity 0.18s ease;
+}
+
+.alba-subcat-wrapper {
+  /* positioned via inline style (position: fixed) */
+  cursor: pointer;
+}
+
+.alba-subcat-drop-card {
+  animation: subcat-appear 0.22s cubic-bezier(0.34, 1.56, 0.64, 1) both;
+  animation-delay: var(--subcat-delay, 0ms);
+  will-change: transform, opacity;
+}
+
+.alba-subcat-drop-card.is-peripheral {
+  opacity: 0.62;
+  filter: blur(0.5px);
+}
+
+@keyframes subcat-appear {
+  from {
+    opacity: 0;
+    transform: scale(0.3);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+.alba-category-menu-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+}
+
+.alba-category-menu {
+  position: fixed;
+  width: 1px;
+  height: 1px;
+}
+
+.alba-category-menu-core {
+  position: absolute;
+  width: 14px;
+  height: 14px;
+  margin-left: -7px;
+  margin-top: -7px;
+  border-radius: 50%;
+  background: rgba(235, 242, 251, 0.85);
+  box-shadow: 0 0 0 4px rgba(255, 255, 255, 0.18);
+}
+
+.alba-category-menu-action {
+  position: absolute;
+  width: 34px;
+  height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  font-size: 0.78rem;
+  color: #f3f8ff;
+  background: rgba(35, 53, 75, 0.95);
+  box-shadow: 0 8px 18px rgba(4, 8, 14, 0.4);
+}
+
+.alba-category-menu-add {
+  margin-left: -52px;
+  margin-top: -72px;
+}
+
+.alba-category-menu-edit {
+  margin-left: 18px;
+  margin-top: -72px;
+}
+
+.alba-category-menu-del-sub {
+  margin-left: -52px;
+  margin-top: -22px;
+}
+
+.alba-category-menu-delete {
+  margin-left: 18px;
+  margin-top: -22px;
+  background: rgba(114, 34, 34, 0.95);
+}
+
+.alba-bottom-nav {
+  position: fixed !important;
+  inset: auto 0 0 0;
+  bottom: 0 !important;
+  width: 100vw;
+  z-index: 999;
+  max-width: none;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 0.15rem;
+  padding: 0.22rem 0.35rem calc(0.18rem + env(safe-area-inset-bottom));
+  border-top: 1px solid rgba(255, 255, 255, 0.22);
+  border-radius: 0;
+  background: linear-gradient(180deg, rgba(15, 22, 34, 0.68), rgba(15, 22, 34, 0.9));
+  box-shadow: 0 -10px 22px rgba(4, 8, 15, 0.35);
+  backdrop-filter: blur(14px);
+  -webkit-backdrop-filter: blur(14px);
+  transform: translateZ(0);
+}
+
+.alba-bottom-nav button {
+  min-height: 54px;
+  border: 0;
+  border-radius: 14px;
+  background: transparent;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 0.2rem;
+  padding: 0.1rem;
+}
+
+.alba-nav-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255, 255, 255, 0.26);
+  background: rgba(255, 255, 255, 0.08);
+  font-size: 0.82rem;
+}
+
+.alba-nav-label {
+  max-width: 66px;
+  font-size: 0.52rem;
+  line-height: 1.02;
+  color: rgba(230, 239, 250, 0.9);
+  text-align: center;
+  white-space: normal;
+  word-break: break-word;
+  overflow-wrap: anywhere;
+}
+
+.alba-bottom-nav button.is-active .alba-nav-icon {
+  border-color: rgba(255, 255, 255, 0.6);
+  background: rgba(255, 255, 255, 0.23);
+}
+
+.alba-keypad-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 10;
+  padding: 1rem;
+  display: grid;
+  place-items: end center;
+  background: rgba(10, 14, 24, 0.48);
+}
+
+.alba-keypad-panel {
+  width: min(620px, 100%);
+  border: 1px solid var(--alba-border);
+  border-radius: 20px;
+  padding: 1rem;
+  background: linear-gradient(135deg, rgba(37, 46, 61, 0.96), rgba(30, 38, 50, 0.9));
+  box-shadow: 0 18px 42px rgba(2, 4, 9, 0.48);
+  display: grid;
+  gap: 0.75rem;
+}
+
+.alba-keypad-panel h3 {
+  margin: 0;
+  font-size: 1rem;
+}
+
+.alba-display {
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  border-radius: 14px;
+  min-height: 58px;
+  padding: 0.8rem;
+  font-size: 1.7rem;
+  text-align: right;
+  background: rgba(0, 0, 0, 0.25);
+}
+
+.alba-keypad-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.45rem;
+}
+
+.alba-keypad-grid button {
+  font-size: 1.1rem;
+  min-height: 52px;
+}
+
+.alba-keypad-actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 0.5rem;
+}
+
+.alba-auth-toggle button:hover,
+.alba-auth-form button:hover,
+.alba-section-head button:hover,
+.alba-bottom-nav button:hover,
+.alba-keypad-actions button:hover,
+.alba-keypad-grid button:hover,
+.alba-avatar:hover,
+.alba-member-pill:hover,
+.alba-account-card:hover,
+.alba-income-card:hover,
+.alba-category-card:hover {
+  transform: translateY(-1px);
+}
+
+.alba-section-toggle:hover {
+  transform: none;
+}
+
+.alba-account-card:hover .alba-item-circle,
+.alba-income-card:hover .alba-item-circle,
+.alba-category-card:hover .alba-item-circle {
+  border-color: rgba(255, 255, 255, 0.42);
+}
+
+.alba-item-add:hover .alba-item-circle.is-add {
+  border-color: rgba(245, 251, 255, 0.95);
+  background: rgba(255, 255, 255, 0.1);
+}
+
+@media (min-width: 760px) {
+  .alba-shell {
+    padding: 0;
+  }
+
+  .alba-app {
+    padding: 0 0.9rem;
+    padding-bottom: calc(4.2rem + env(safe-area-inset-bottom));
+  }
+
+  .alba-main {
+    gap: 0;
+  }
+
+  .alba-section {
+    gap: 0;
+    padding-bottom: 0.12rem;
+  }
+
+  .alba-section.is-collapsed {
+    padding-bottom: 0;
+  }
+
+  .alba-header {
+    margin: 0 -0.9rem;
+    padding: 0.5rem 0.9rem;
+  }
+
+  .alba-accounts-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .alba-category-grid {
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    gap: 0.5rem;
+  }
+
+  .alba-item-circle {
+    width: 52px;
+    height: 52px;
+    font-size: 0.74rem;
+  }
+
+  .alba-item-title {
+    max-width: 62px;
+    font-size: 0.62rem;
+  }
+
+  .alba-item-subtitle {
+    max-width: 62px;
+    font-size: 0.56rem;
+  }
+
+  .alba-keypad-overlay {
+    place-items: center;
+  }
+}
+
+@supports (-webkit-touch-callout: none) {
+  .alba-bottom-nav {
+    position: fixed !important;
+    bottom: 0 !important;
+  }
+}
