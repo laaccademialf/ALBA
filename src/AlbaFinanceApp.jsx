@@ -44,6 +44,105 @@ const tabs = [
   { id: "settings", label: "Налаштування", icon: "⚙" },
 ];
 
+const categoryIconPresets = [
+  "🛒",
+  "🛍",
+  "🥖",
+  "🥦",
+  "🍎",
+  "🍽",
+  "☕",
+  "🍰",
+  "🏠",
+  "🏡",
+  "🔑",
+  "💳",
+  "💵",
+  "💰",
+  "💸",
+  "🏦",
+  "📈",
+  "📊",
+  "🚕",
+  "🚗",
+  "🚌",
+  "🚲",
+  "⛽",
+  "💊",
+  "🩺",
+  "🦷",
+  "🎁",
+  "🎬",
+  "🎮",
+  "🎓",
+  "📚",
+  "👕",
+  "👟",
+  "📱",
+  "💻",
+  "🧾",
+  "📄",
+  "🐶",
+  "🐱",
+  "✈",
+  "🚆",
+  "🏨",
+  "🛠",
+  "🔧",
+  "🪑",
+  "⚽",
+  "🏋",
+  "📦",
+  "💡",
+  "🌿",
+  "🧴",
+  "🧹",
+  "🍼",
+  "❤️",
+  "🪙",
+  "🧠",
+  "📉",
+  "🧮",
+  "🧑‍💼",
+  "🪪",
+  "📬",
+  "🗂",
+  "🏬",
+  "🏪",
+  "🧺",
+  "🍔",
+  "🍕",
+  "🍣",
+  "🥗",
+  "🥛",
+  "🏥",
+  "🧻",
+  "🪥",
+  "💄",
+  "🧸",
+  "🎨",
+  "🎵",
+  "🏊",
+  "🧳",
+  "🚇",
+  "🚚",
+  "🛵",
+  "🏖",
+  "🧷",
+  "🪴",
+  "🧯",
+  "🧱",
+  "🔌",
+  "📡",
+  "🔋",
+  "🗑",
+  "🔒",
+  "🧑‍🍼",
+  "👶",
+  "🐾",
+  "🎀",
+];
+
 function money(value) {
   return new Intl.NumberFormat("uk-UA", {
     style: "currency",
@@ -59,6 +158,30 @@ function buildInitials(value) {
   if (parts.length === 0) return "КР";
   if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase();
   return `${parts[0][0]}${parts[1][0]}`.toUpperCase();
+}
+
+function hexToRgb(hex) {
+  const normalized = String(hex || "").replace("#", "").trim();
+  if (normalized.length !== 6) return null;
+  const value = Number.parseInt(normalized, 16);
+  if (Number.isNaN(value)) return null;
+  return {
+    r: (value >> 16) & 255,
+    g: (value >> 8) & 255,
+    b: value & 255,
+  };
+}
+
+function buildCategoryCircleStyle(color) {
+  const rgb = hexToRgb(color);
+  if (!rgb) return undefined;
+  return {
+    borderColor: `rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.78)`,
+    background: `radial-gradient(circle at 30% 20%, rgba(${rgb.r}, ${rgb.g}, ${rgb.b}, 0.72), rgba(${Math.max(
+      0,
+      Math.round(rgb.r * 0.38)
+    )}, ${Math.max(0, Math.round(rgb.g * 0.38))}, ${Math.max(0, Math.round(rgb.b * 0.38))}, 0.66))`,
+  };
 }
 
 export default function AlbaFinanceApp() {
@@ -90,14 +213,217 @@ export default function AlbaFinanceApp() {
   const [target, setTarget] = useState(null);
   const [categoryMenu, setCategoryMenu] = useState(null);
   const [itemMenu, setItemMenu] = useState(null);
+  const [categoryEditor, setCategoryEditor] = useState(null);
+  const [categoryEditorOffsetY, setCategoryEditorOffsetY] = useState(0);
+  const [categoryIconPickerOpen, setCategoryIconPickerOpen] = useState(false);
+  const [categoryEditMode, setCategoryEditMode] = useState(false);
+  const [draggedCategoryId, setDraggedCategoryId] = useState(null);
   const [activeExpenseDropId, setActiveExpenseDropId] = useState(null);
   const [subcatAnchor, setSubcatAnchor] = useState({ x: 0, y: 0 });
   const [syncMode, setSyncMode] = useState(isFirebaseConfigured ? "firebase" : "local");
   const touchHoldRef = useRef({ timer: null, fired: false });
+  const categoryReorderRef = useRef({
+    ghost: null,
+    sourceId: null,
+    overId: null,
+    moved: false,
+    startX: 0,
+    startY: 0,
+    previewItems: [],
+  });
+  const categoryEditorSaveTimerRef = useRef(null);
+  const categoryEditorDragRef = useRef({ active: false, startY: 0, pointerId: null });
+  const transparentDragImageRef = useRef(null);
+
+  function sortCategoriesByOrder(items) {
+    return [...items].sort((left, right) => {
+      const leftOrder = Number.isFinite(left.sortOrder) ? left.sortOrder : Number.MAX_SAFE_INTEGER;
+      const rightOrder = Number.isFinite(right.sortOrder) ? right.sortOrder : Number.MAX_SAFE_INTEGER;
+      if (leftOrder !== rightOrder) return leftOrder - rightOrder;
+      return String(left.id).localeCompare(String(right.id));
+    });
+  }
+
+  function applyCategoryOrder(nextCategories) {
+    const previousRects = new Map(
+      categories.map((item) => {
+        const element = document.querySelector(`[data-reorder-category="${item.id}"]`);
+        return [item.id, element?.getBoundingClientRect() || null];
+      })
+    );
+
+    const normalized = nextCategories.map((item, index) => ({ ...item, sortOrder: index }));
+    setCategories(normalized);
+
+    requestAnimationFrame(() => {
+      normalized.forEach((item) => {
+        const element = document.querySelector(`[data-reorder-category="${item.id}"]`);
+        const prev = previousRects.get(item.id);
+        const next = element?.getBoundingClientRect();
+        if (!element || !prev || !next) return;
+        const dx = prev.left - next.left;
+        const dy = prev.top - next.top;
+        if (dx === 0 && dy === 0) return;
+        element.animate(
+          [
+            { transform: `translate(${dx}px, ${dy}px)` },
+            { transform: "translate(0, 0)" },
+          ],
+          { duration: 220, easing: "cubic-bezier(0.22, 1, 0.36, 1)" }
+        );
+      });
+    });
+
+    return normalized;
+  }
+
+  function moveCategoryInList(items, fromId, toId) {
+    if (!fromId || !toId || fromId === toId) return null;
+    const fromIndex = items.findIndex((item) => item.id === fromId);
+    const toIndex = items.findIndex((item) => item.id === toId);
+    if (fromIndex < 0 || toIndex < 0) return null;
+    const next = [...items];
+    const [moved] = next.splice(fromIndex, 1);
+    next.splice(toIndex, 0, moved);
+    return next;
+  }
+
+  async function persistCategoryOrder(nextCategories) {
+    const normalized = applyCategoryOrder(nextCategories);
+
+    if (db && currentUserId) {
+      try {
+        await Promise.all(
+          normalized.map((item) =>
+            updateDoc(doc(db, "users", currentUserId, "categories", item.id), { sortOrder: item.sortOrder })
+          )
+        );
+      } catch {
+        window.alert("Не вдалося зберегти порядок категорій у Firebase.");
+      }
+    }
+  }
+
+  function reorderCategories(fromId, toId) {
+    const current = sortCategoriesByOrder(categories);
+    const next = moveCategoryInList(current, fromId, toId);
+    if (!next) return;
+    persistCategoryOrder(next);
+  }
+
+  function previewCategoryOrder(fromId, toId, currentItems = sortCategoriesByOrder(categories)) {
+    const next = moveCategoryInList(currentItems, fromId, toId);
+    if (!next) return currentItems;
+    return applyCategoryOrder(next);
+  }
+
+  function openCategoryMenu(categoryId) {
+    const rect = document
+      .querySelector(`[data-reorder-category="${categoryId}"] .alba-category-card`)
+      ?.getBoundingClientRect();
+    if (!rect) return;
+    setCategoryMenu({
+      categoryId,
+      x: rect.left + rect.width / 2,
+      y: rect.top + rect.height / 2,
+    });
+  }
+
+  function openCategoryEditor(category) {
+    if (categoryEditorSaveTimerRef.current) {
+      clearTimeout(categoryEditorSaveTimerRef.current);
+      categoryEditorSaveTimerRef.current = null;
+    }
+    setCategoryEditorOffsetY(0);
+    setCategoryIconPickerOpen(false);
+    setCategoryEditor({
+      id: category.id,
+      name: category.name || "",
+      icon: category.icon || buildInitials(category.name || "Категорія"),
+      color: category.color || "#c96f55",
+    });
+    setCategoryEditMode(false);
+  }
+
+  function buildCategoryEditorPayload(draft) {
+    const name = String(draft?.name || "").trim();
+    return {
+      name: name || "Категорія",
+      icon: String(draft?.icon || "").trim() || buildInitials(name || "Категорія"),
+      color: draft?.color || "#c96f55",
+    };
+  }
+
+  async function persistCategoryEditorDraft(draft, options = {}) {
+    if (!draft?.id) return;
+    const payload = buildCategoryEditorPayload(draft);
+    const current = categories.find((item) => item.id === draft.id);
+    const isSame =
+      current &&
+      (current.name || "") === payload.name &&
+      (current.icon || "") === payload.icon &&
+      (current.color || "#c96f55") === payload.color;
+
+    if (isSame) return;
+
+    setCategories((prev) => prev.map((item) => (item.id === draft.id ? { ...item, ...payload } : item)));
+
+    if (db && currentUserId) {
+      try {
+        await updateDoc(doc(db, "users", currentUserId, "categories", draft.id), payload);
+      } catch {
+        if (options.showError) {
+          window.alert("Не вдалося зберегти зміни категорії у Firebase.");
+        }
+      }
+    }
+  }
+
+  function closeCategoryEditor() {
+    const draft = categoryEditor;
+    if (categoryEditorSaveTimerRef.current) {
+      clearTimeout(categoryEditorSaveTimerRef.current);
+      categoryEditorSaveTimerRef.current = null;
+    }
+    setCategoryEditor(null);
+    setCategoryEditorOffsetY(0);
+    setCategoryIconPickerOpen(false);
+    categoryEditorDragRef.current = { active: false, startY: 0, pointerId: null };
+    if (draft) {
+      void persistCategoryEditorDraft(draft, { showError: true });
+    }
+  }
+
+  function handleCategoryEditorDragStart(event) {
+    if (!categoryEditor) return;
+    categoryEditorDragRef.current = {
+      active: true,
+      startY: event.clientY,
+      pointerId: event.pointerId,
+    };
+  }
+
+  function handleCategoryEditorDragMove(event) {
+    const drag = categoryEditorDragRef.current;
+    if (!drag.active || drag.pointerId !== event.pointerId) return;
+    const dy = Math.max(0, event.clientY - drag.startY);
+    setCategoryEditorOffsetY(Math.min(240, dy));
+  }
+
+  function handleCategoryEditorDragEnd(event) {
+    const drag = categoryEditorDragRef.current;
+    if (!drag.active || drag.pointerId !== event.pointerId) return;
+    categoryEditorDragRef.current = { active: false, startY: 0, pointerId: null };
+    if (categoryEditorOffsetY > 90) {
+      closeCategoryEditor();
+      return;
+    }
+    setCategoryEditorOffsetY(0);
+  }
 
   function buildSubcategoryLayout(parentCategoryId) {
-    const allItems = subcategories.filter((s) => s.parentCategoryId === parentCategoryId).slice(0, 6);
-    const RADIUS = 72;
+    const allItems = subcategories.filter((s) => s.parentCategoryId === parentCategoryId).slice(0, 4);
+    const RADIUS = 92;
     const CARD_W = 60;
     const CARD_H = 70;
     const vw = typeof window !== "undefined" ? window.innerWidth : 400;
@@ -105,13 +431,13 @@ export default function AlbaFinanceApp() {
     const isLeftEdge = subcatAnchor.x < 84;
     const isRightEdge = subcatAnchor.x > vw - 84;
     const edgeMode = isLeftEdge || isRightEdge;
-    const items = edgeMode ? allItems.slice(0, 4) : allItems;
+    const items = allItems;
 
     const angles = edgeMode
       ? isRightEdge
         ? [0, -60, -120, 180]
         : [0, 60, 120, 180]
-      : [0, 60, 120, 180, 240, 300];
+      : [240, 300, 0, 60];
 
     return items.map((subcategory, idx) => {
       // Базово старт з 12:00; для крайніх категорій - 4 підкатегорії "всередину".
@@ -417,6 +743,31 @@ export default function AlbaFinanceApp() {
   }, []);
 
   useEffect(() => {
+    if (!categoryEditMode) return;
+
+    function handleOutsidePointer(event) {
+      const targetNode = event.target;
+      if (!(targetNode instanceof Element)) return;
+      if (targetNode.closest(".alba-category-wrap") || targetNode.closest(".alba-category-menu")) {
+        return;
+      }
+      setCategoryMenu(null);
+      setCategoryEditMode(false);
+    }
+
+    document.addEventListener("pointerdown", handleOutsidePointer);
+    return () => {
+      document.removeEventListener("pointerdown", handleOutsidePointer);
+    };
+  }, [categoryEditMode]);
+
+  useEffect(() => {
+    const image = new Image();
+    image.src = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///ywAAAAAAQABAAACAUwAOw==";
+    transparentDragImageRef.current = image;
+  }, []);
+
+  useEffect(() => {
     if (!db) {
       if (syncMode !== "local") {
         setSyncMode("local");
@@ -465,7 +816,7 @@ export default function AlbaFinanceApp() {
     const unsubscribeCategories = onSnapshot(categoriesCol, (snapshot) => {
       const docs = snapshot.docs.map((item) => ({ id: item.id, ...item.data() }));
 
-      setCategories(docs);
+      setCategories(sortCategoriesByOrder(docs));
     });
 
     const unsubscribeFamily = onSnapshot(familyCol, (snapshot) => {
@@ -732,11 +1083,15 @@ export default function AlbaFinanceApp() {
     const name = window.prompt("Назва категорії");
     if (!name) return;
 
+    const nextOrder = sortCategoriesByOrder(categories).length;
+
     if (db && currentUserId) {
       try {
         await addDoc(collection(db, "users", currentUserId, "categories"), {
           name,
           icon: name.slice(0, 2).toUpperCase(),
+          color: "#c96f55",
+          sortOrder: nextOrder,
           createdAt: serverTimestamp(),
         });
         return;
@@ -752,14 +1107,16 @@ export default function AlbaFinanceApp() {
         id: `cat-${Date.now()}`,
         name,
         icon: name.slice(0, 2).toUpperCase(),
+        color: "#c96f55",
+        sortOrder: nextOrder,
       },
     ]);
   }
 
   async function handleAddSubcategory(category) {
     const existing = subcategories.filter((s) => s.parentCategoryId === category.id);
-    if (existing.length >= 6) {
-      window.alert(`Максимум 6 підкатегорій для "${category.name}"`);
+    if (existing.length >= 4) {
+      window.alert(`Максимум 4 підкатегорії для "${category.name}"`);
       return;
     }
     const name = window.prompt(`Назва підкатегорії для "${category.name}"`);
@@ -787,27 +1144,22 @@ export default function AlbaFinanceApp() {
     setSubcategories((prev) => [...prev, { id: `sub-${Date.now()}`, ...draft }]);
   }
 
-  async function handleEditCategory(category) {
-    const name = window.prompt("Нова назва категорії", category.name);
-    if (!name || name === category.name) return;
-
-    const payload = {
-      name,
-      icon: name.slice(0, 2).toUpperCase(),
-    };
-
-    if (db && currentUserId) {
-      try {
-        await updateDoc(doc(db, "users", currentUserId, "categories", category.id), payload);
-        return;
-      } catch (error) {
-        window.alert("Не вдалося оновити категорію у Firebase. Перевір правила Firestore.");
-        return;
-      }
+  useEffect(() => {
+    if (!categoryEditor) return;
+    if (categoryEditorSaveTimerRef.current) {
+      clearTimeout(categoryEditorSaveTimerRef.current);
     }
+    categoryEditorSaveTimerRef.current = setTimeout(() => {
+      void persistCategoryEditorDraft(categoryEditor);
+    }, 260);
 
-    setCategories((prev) => prev.map((item) => (item.id === category.id ? { ...item, ...payload } : item)));
-  }
+    return () => {
+      if (categoryEditorSaveTimerRef.current) {
+        clearTimeout(categoryEditorSaveTimerRef.current);
+        categoryEditorSaveTimerRef.current = null;
+      }
+    };
+  }, [categoryEditor]);
 
   function handleDropOnCategory(category, accountFromTouch = null) {
     const sourceAccount = accountFromTouch || draggedAccount;
@@ -876,6 +1228,22 @@ export default function AlbaFinanceApp() {
   }
 
   function handleCategoryTouchStart(category, event) {
+    if (categoryEditMode) {
+      event.preventDefault();
+      const touch = event.touches?.[0];
+      if (!touch) return;
+      categoryReorderRef.current = {
+        ghost: null,
+        sourceId: category.id,
+        overId: category.id,
+        moved: false,
+        startX: touch.clientX,
+        startY: touch.clientY,
+        previewItems: sortCategoriesByOrder(categories),
+      };
+      return;
+    }
+
     if (draggedAccountId || draggedIncomeId) return;
     const touch = event.touches?.[0];
     if (!touch) return;
@@ -892,15 +1260,49 @@ export default function AlbaFinanceApp() {
 
     categoryPressRef.current.timer = setTimeout(() => {
       categoryPressRef.current.fired = true;
-      setCategoryMenu({
-        categoryId: category.id,
-        x: anchorX,
-        y: anchorY,
-      });
+      setCategoryEditMode(true);
     }, 480);
   }
 
   function handleCategoryTouchMove(event) {
+    if (categoryEditMode) {
+      const touch = event.touches?.[0];
+      const drag = categoryReorderRef.current;
+      if (!touch || !drag.sourceId) return;
+      const dx = touch.clientX - drag.startX;
+      const dy = touch.clientY - drag.startY;
+      if (!drag.moved && (Math.abs(dx) > 8 || Math.abs(dy) > 8)) {
+        drag.moved = true;
+        const circle = document
+          .querySelector(`[data-reorder-category="${drag.sourceId}"] .alba-item-circle`);
+        const rect = circle?.getBoundingClientRect();
+        if (circle && rect) {
+          const ghost = circle.cloneNode(true);
+          ghost.className = `${circle.className} alba-drag-ghost alba-drag-ghost-category`;
+          ghost.style.width = `${rect.width}px`;
+          ghost.style.height = `${rect.height}px`;
+          ghost.style.left = `${touch.clientX - rect.width / 2}px`;
+          ghost.style.top = `${touch.clientY - rect.height / 2}px`;
+          document.body.appendChild(ghost);
+          drag.ghost = ghost;
+        }
+        setDraggedCategoryId(drag.sourceId);
+      }
+      event.preventDefault();
+      if (drag.ghost) {
+        drag.ghost.style.left = `${touch.clientX - drag.ghost.offsetWidth / 2}px`;
+        drag.ghost.style.top = `${touch.clientY - drag.ghost.offsetHeight / 2}px`;
+      }
+      const hovered = document.elementFromPoint(touch.clientX, touch.clientY);
+      const targetCategory = hovered?.closest("[data-reorder-category]");
+      const nextOverId = targetCategory ? targetCategory.getAttribute("data-reorder-category") : drag.overId;
+      if (nextOverId && nextOverId !== drag.overId) {
+        drag.overId = nextOverId;
+        drag.previewItems = previewCategoryOrder(drag.sourceId, nextOverId, drag.previewItems);
+      }
+      return;
+    }
+
     const touch = event.touches?.[0];
     if (!touch || !categoryPressRef.current.timer) return;
     const dx = Math.abs(touch.clientX - categoryPressRef.current.startX);
@@ -912,6 +1314,30 @@ export default function AlbaFinanceApp() {
   }
 
   function handleCategoryTouchEnd(event) {
+    if (categoryEditMode) {
+      const drag = categoryReorderRef.current;
+      if (drag.ghost) {
+        drag.ghost.remove();
+      }
+      if (drag.sourceId && drag.moved && drag.previewItems.length) {
+        persistCategoryOrder(drag.previewItems);
+      } else if (drag.sourceId) {
+        openCategoryMenu(drag.sourceId);
+      }
+      setDraggedCategoryId(null);
+      categoryReorderRef.current = {
+        ghost: null,
+        sourceId: null,
+        overId: null,
+        moved: false,
+        startX: 0,
+        startY: 0,
+        previewItems: [],
+      };
+      event.preventDefault();
+      return;
+    }
+
     if (categoryPressRef.current.timer) {
       clearTimeout(categoryPressRef.current.timer);
       categoryPressRef.current.timer = null;
@@ -1081,7 +1507,7 @@ export default function AlbaFinanceApp() {
   }
 
   return (
-    <div className="alba-shell">
+    <div className={`alba-shell ${activeExpenseDropId ? "is-subcat-focus" : ""}`}>
       <div className="alba-glow alba-glow-a" />
       <div className="alba-glow alba-glow-b" />
 
@@ -1297,16 +1723,35 @@ export default function AlbaFinanceApp() {
                 {categories.map((category) => (
                   <div
                     key={category.id}
-                    className="alba-category-wrap"
+                    className={`alba-category-wrap ${categoryEditMode ? "is-editing" : ""} ${draggedCategoryId === category.id ? "is-dragging" : ""} ${activeExpenseDropId === category.id ? "is-subcat-focus" : ""}`}
                     data-expense-category={category.id}
-                    style={{ opacity: activeExpenseDropId && activeExpenseDropId !== category.id ? 0.45 : 1 }}
+                    data-reorder-category={category.id}
+                    style={{ opacity: activeExpenseDropId && activeExpenseDropId !== category.id ? 0.18 : 1, zIndex: activeExpenseDropId === category.id ? 35 : undefined }}
                   >
                     <button
                       type="button"
                       className="alba-category-card alba-item-card"
+                      draggable={categoryEditMode}
                       data-drop-category={category.id}
                       data-expense-category={category.id}
+                      onClick={() => {
+                        if (!categoryEditMode) return;
+                        openCategoryMenu(category.id);
+                      }}
+                      onDragStart={(event) => {
+                        if (!categoryEditMode) {
+                          event.preventDefault();
+                          return;
+                        }
+                        setDraggedCategoryId(category.id);
+                        event.dataTransfer.effectAllowed = "move";
+                        if (transparentDragImageRef.current) {
+                          event.dataTransfer.setDragImage(transparentDragImageRef.current, 0, 0);
+                        }
+                      }}
+                      onDragEnd={() => setDraggedCategoryId(null)}
                       onDragEnter={(event) => {
+                        if (categoryEditMode) return;
                         if (draggedAccountId) {
                           setActiveExpenseDropId(category.id);
                           const r = event.currentTarget.getBoundingClientRect();
@@ -1315,15 +1760,23 @@ export default function AlbaFinanceApp() {
                       }}
                       onDragOver={(event) => {
                         event.preventDefault();
+                        if (categoryEditMode) return;
                         if (draggedAccountId) setActiveExpenseDropId(category.id);
                       }}
-                      onDrop={() => handleDropOnCategory(category)}
+                      onDrop={() => {
+                        if (categoryEditMode) {
+                          reorderCategories(draggedCategoryId, category.id);
+                          setDraggedCategoryId(null);
+                          return;
+                        }
+                        handleDropOnCategory(category);
+                      }}
                       onTouchStart={(event) => handleCategoryTouchStart(category, event)}
                       onTouchMove={handleCategoryTouchMove}
                       onTouchEnd={handleCategoryTouchEnd}
                       aria-label={`Категорія витрат ${category.name}`}
                     >
-                      <div className="alba-item-circle is-category" aria-hidden="true">
+                      <div className="alba-item-circle is-category" style={buildCategoryCircleStyle(category.color)} aria-hidden="true">
                         {category.icon}
                       </div>
                       <span className="alba-item-title">{category.name}</span>
@@ -1425,6 +1878,8 @@ export default function AlbaFinanceApp() {
         </div>
       ) : null}
 
+        {activeExpenseDropId ? <div className="alba-subcat-focus-backdrop" aria-hidden="true" /> : null}
+
         {activeExpenseDropId
           ? buildSubcategoryLayout(activeExpenseDropId).map((item) => {
               const activeCat = categories.find((c) => c.id === activeExpenseDropId);
@@ -1451,7 +1906,7 @@ export default function AlbaFinanceApp() {
                     role="button"
                     tabIndex={0}
                     className={`alba-item-card alba-subcat-drop-card ${item.isPeripheral ? "is-peripheral" : ""}`}
-                    style={{ "--subcat-delay": `${idx * 55}ms` }}
+                    style={{ "--subcat-delay": `${idx * 18}ms` }}
                   >
                     <div className="alba-item-circle is-category">{subcategory.icon}</div>
                     <span className="alba-item-title">{subcategory.name}</span>
@@ -1461,6 +1916,122 @@ export default function AlbaFinanceApp() {
               );
             })
           : null}
+
+      {categoryEditor ? (
+        <div
+          className="alba-keypad-overlay alba-category-editor-overlay"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Редагування категорії"
+          onClick={closeCategoryEditor}
+        >
+          <div
+            className="alba-keypad-panel alba-category-editor-panel"
+            style={{ transform: `translateY(${categoryEditorOffsetY}px)` }}
+            onClick={(event) => event.stopPropagation()}
+          >
+            <button
+              type="button"
+              className="alba-category-editor-handle"
+              onPointerDown={handleCategoryEditorDragStart}
+              onPointerMove={handleCategoryEditorDragMove}
+              onPointerUp={handleCategoryEditorDragEnd}
+              onPointerCancel={handleCategoryEditorDragEnd}
+              aria-label="Потягнути вниз щоб сховати"
+            >
+              <span className="alba-category-editor-handle-bar" aria-hidden="true" />
+            </button>
+            <p className="alba-label">Редагування категорії</p>
+            <div className="alba-category-editor-preview">
+              <div className="alba-item-circle is-category alba-category-editor-icon" style={buildCategoryCircleStyle(categoryEditor.color)} aria-hidden="true">
+                {String(categoryEditor.icon || "").trim() || buildInitials(categoryEditor.name || "Категорія")}
+              </div>
+              <div className="alba-category-editor-copy">
+                <input
+                  type="text"
+                  className="alba-category-editor-title-input"
+                  value={categoryEditor.name}
+                  onChange={(event) => setCategoryEditor((prev) => ({ ...prev, name: event.target.value }))}
+                  placeholder="Нова категорія"
+                  aria-label="Назва категорії"
+                />
+                <p>{categoryEditor.color}</p>
+              </div>
+            </div>
+
+            <div className="alba-category-editor-form">
+              <label className="alba-auth-form-label">
+                <span className="alba-label">Набір іконок</span>
+                <div className="alba-category-editor-icons-row" aria-label="Швидкий вибір іконки">
+                  <button
+                    type="button"
+                    className="alba-category-editor-icon-option alba-category-editor-icon-all"
+                    onClick={() => setCategoryIconPickerOpen(true)}
+                    aria-label="Відкрити всі іконки"
+                  >
+                    Всі
+                  </button>
+
+                  {categoryIconPresets.slice(0, 10).map((icon) => (
+                    <button
+                      key={icon}
+                      type="button"
+                      className={`alba-category-editor-icon-option ${categoryEditor.icon === icon ? "is-active" : ""}`}
+                      onClick={() => setCategoryEditor((prev) => ({ ...prev, icon }))}
+                      aria-label={`Вибрати іконку ${icon}`}
+                    >
+                      {icon}
+                    </button>
+                  ))}
+                </div>
+              </label>
+
+              <label className="alba-auth-form-label alba-category-editor-color-inline">
+                <span className="alba-label">Колір</span>
+                <input
+                  className="alba-category-editor-color-input"
+                  type="color"
+                  value={categoryEditor.color}
+                  onChange={(event) => setCategoryEditor((prev) => ({ ...prev, color: event.target.value }))}
+                />
+              </label>
+            </div>
+
+            {categoryIconPickerOpen ? (
+              <div className="alba-category-icon-picker-overlay" onClick={() => setCategoryIconPickerOpen(false)}>
+                <div className="alba-category-icon-picker-sheet" onClick={(event) => event.stopPropagation()}>
+                  <div className="alba-category-icon-picker-head">
+                    <p className="alba-label">Всі іконки</p>
+                    <button
+                      type="button"
+                      className="alba-category-icon-picker-close"
+                      onClick={() => setCategoryIconPickerOpen(false)}
+                    >
+                      Закрити
+                    </button>
+                  </div>
+                  <div className="alba-category-icon-picker-grid">
+                    {categoryIconPresets.map((icon) => (
+                      <button
+                        key={`full-${icon}`}
+                        type="button"
+                        className={`alba-category-editor-icon-option alba-category-icon-picker-option ${categoryEditor.icon === icon ? "is-active" : ""}`}
+                        onClick={() => {
+                          setCategoryEditor((prev) => ({ ...prev, icon }));
+                          setCategoryIconPickerOpen(false);
+                        }}
+                        aria-label={`Вибрати іконку ${icon}`}
+                      >
+                        {icon}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
 
       {categoryMenu ? (
         <div className="alba-category-menu-backdrop" onClick={() => setCategoryMenu(null)} aria-hidden="true">
@@ -1486,45 +2057,11 @@ export default function AlbaFinanceApp() {
               className="alba-category-menu-action alba-category-menu-edit"
               onClick={() => {
                 const category = categories.find((item) => item.id === categoryMenu.categoryId);
-                if (category) handleEditCategory(category);
+                if (category) openCategoryEditor(category);
                 setCategoryMenu(null);
               }}
             >
               ✎
-            </button>
-
-            <button
-              type="button"
-              className="alba-category-menu-action alba-category-menu-del-sub"
-              onClick={() => {
-                const category = categories.find((item) => item.id === categoryMenu.categoryId);
-                if (!category) {
-                  setCategoryMenu(null);
-                  return;
-                }
-
-                const pool = subcategories.filter((item) => item.parentCategoryId === category.id);
-                if (pool.length === 0) {
-                  window.alert("Немає підкатегорій для видалення.");
-                  setCategoryMenu(null);
-                  return;
-                }
-
-                const options = pool.map((item, index) => `${index + 1}. ${item.name}`).join("\n");
-                const raw = window.prompt(`Введи номер підкатегорії для видалення:\n${options}`);
-                const idx = Number(raw) - 1;
-                if (!Number.isInteger(idx) || idx < 0 || idx >= pool.length) {
-                  setCategoryMenu(null);
-                  return;
-                }
-                const chosen = pool[idx];
-                if (window.confirm(`Видалити підкатегорію \"${chosen.name}\"?`)) {
-                  handleDeleteSubcategory(chosen.id);
-                }
-                setCategoryMenu(null);
-              }}
-            >
-              ⊖
             </button>
 
             <button
@@ -1538,7 +2075,13 @@ export default function AlbaFinanceApp() {
                 setCategoryMenu(null);
               }}
             >
-              🗑
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7h16" />
+                <path d="M9 7V5h6v2" />
+                <path d="M8 7l1 12h6l1-12" />
+                <path d="M10 10v6" />
+                <path d="M14 10v6" />
+              </svg>
             </button>
 
             <div className="alba-category-menu-core" aria-hidden="true" />
@@ -1569,7 +2112,13 @@ export default function AlbaFinanceApp() {
                 setItemMenu(null);
               }}
             >
-              🗑
+              <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M4 7h16" />
+                <path d="M9 7V5h6v2" />
+                <path d="M8 7l1 12h6l1-12" />
+                <path d="M10 10v6" />
+                <path d="M14 10v6" />
+              </svg>
             </button>
 
             <div className="alba-category-menu-core" aria-hidden="true" />
